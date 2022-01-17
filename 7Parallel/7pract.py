@@ -72,3 +72,67 @@ def new_matrix_input():
 def old_matrix_input():
     """Чтение уже существующих матриц из файлов"""
     return matrix_reader(MATRIX1_FILE), matrix_reader(MATRIX2_FILE)
+
+def main():
+
+    manager = mp.Manager()
+    commands_dict = {
+        "1": old_matrix_input,
+        "2": new_matrix_input,
+    }
+
+    matrix1 = None
+    matrix2 = None
+
+    while True:
+        command_input = input(
+            "Как вы хотите получить данные матриц?\n1. Загрузить из файла\n2. Сгенерировать новые значения\n-> "
+        )
+        if command_input in commands_dict:
+            matrix1, matrix2 = commands_dict[command_input]()
+            break
+        else:
+            print("Команда не найдена")
+
+    matrix_result = [
+        [0 for _ in range(len(matrix2[0]))] for _ in range(len(matrix2[0]))
+    ]
+
+    print_matrix(matrix1)
+    print_matrix(matrix2)
+
+    # Список процессов
+    processes_list = []
+    # Очередь ответов
+    que = manager.Queue()
+
+    for i in range(len(matrix_result)):
+        for j in range(len(matrix_result[i])):
+            p = mp.Process(
+                target=worker,
+                args=(
+                    i,
+                    j,
+                    matrix1,
+                    matrix2,
+                    que,
+                ),
+            )
+            processes_list.append(p)
+
+    for p in processes_list:
+        p.start()
+    for p in processes_list:
+        p.join()
+
+    for i in range(len(matrix_result)):
+        for j in range(len(matrix_result[i])):
+            r = que.get()
+            matrix_result[r["i"]][r["j"]] = r["result"]
+
+    print_matrix(matrix_result)
+    matrix_writer(matrix_result, RESULT_FILE)
+
+
+if __name__ == "__main__":
+    main()
